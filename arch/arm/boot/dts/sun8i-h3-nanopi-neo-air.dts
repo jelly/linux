@@ -53,6 +53,7 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial3 = &uart3;
 	};
 
 	chosen {
@@ -79,6 +80,29 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_en_nanopi_neo_air>;
 		reset-gpios = <&r_pio 0 7 GPIO_ACTIVE_LOW>; /* PL7 */
+	};
+
+	rfkill-switches {
+		compatible = "simple-bus";
+		pinctrl-names = "default";
+
+		rfkill_wifi {
+			compatible = "rfkill-gpio";
+			pinctrl-names = "default";
+			pinctrl-0 = <&wifi_pwrseq>;
+			shutdown-gpio = <&r_pio 0 7 GPIO_ACTIVE_LOW>; /* PL7 */
+			label = "wifi";
+			type = <1>;
+		};
+
+		rfkill_bt {
+			compatible = "rfkill-gpio";
+			pinctrl-names = "default", "default";
+			pinctrl-0 = <&bt_pwr_pin>;
+			shutdown-gpio = <&pio 6 13 GPIO_ACTIVE_LOW>; /* PG13 */
+			label = "bt";
+			type = <2>;
+		};
 	};
 };
 
@@ -138,5 +162,27 @@
 
 &usbphy {
 	/* USB VBUS is always on */
+	status = "okay";
+};
+
+&pio {
+	bt_pwr_pin: bt_pwr_pin@0 {
+		allwinner,pins = "PG13";
+		allwinner,function = "gpio_out";
+		allwinner,drive = <0>;
+		allwinner,pull = <0>;
+	};
+
+	bt_wake_pin: bt_wake_pin@0 {
+		allwinner,pins = "PA8";
+		allwinner,function = "gpio_out";
+		allwinner,drive = <0>;
+		allwinner,pull = <0>;
+	};
+};
+
+&uart3 { /* Connected to AP6212 on Neo Air */
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pins>, <&uart3_rts_cts_pins>;
 	status = "okay";
 };
