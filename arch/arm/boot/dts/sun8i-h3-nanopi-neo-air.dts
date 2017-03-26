@@ -74,10 +74,10 @@
 		};
 	};
 
-	wifi-pwrseq: wifi-pwrseq {
+	wifi_pwrseq: wifi-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		pinctrl-names = "default";
-		pinctrl-0 = <&wifi-en-nanopi-neo-air>;
+		pinctrl-0 = <&wifi_en_nanopi_neo_air>;
 		reset-gpios = <&r_pio 0 7 GPIO_ACTIVE_LOW>; /* PL7 */
 	};
 };
@@ -97,7 +97,7 @@
 	pinctrl-0 = <&mmc1_pins_a>;
 	vmmc-supply = <&reg_vcc3v3>;
 	vqmmc-supply = <&reg_vcc3v3>;
-	mmc-pwrseq = <&wifi-pwrseq>;
+	mmc-pwrseq = <&wifi_pwrseq>;
 	bus-width = <4>;
 	non-removable;
 	status = "okay";
@@ -122,7 +122,7 @@
 };
 
 &r_pio {
-	wifi-en-nanopi-neo-air: wifi_en_pin {
+	wifi_en_nanopi_neo_air: wifi_en_pin {
 		pins = "PL7";
 		function = "gpio_out";
 		drive-strength = <10>;
