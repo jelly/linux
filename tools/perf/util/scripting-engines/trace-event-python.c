@@ -49,6 +49,17 @@
 #include "print_binary.h"
 #include "stat.h"
 
+#if PY_MAJOR_VERSION >= 3
+#define IS_PY3K
+#endif
+
+#ifdef IS_PY3K
+#define PyInt_FromLong PyLong_FromLong 
+#define PyString_FromString PyUnicode_FromFormat
+#define PyString_FromStringAndSize PyUnicode_FromStringAndSize
+#define PyCObject_FromVoidPtr PyCapsule_GetPointer
+#endif
+
 PyMODINIT_FUNC initperf_trace_context(void);
 
 #define TRACE_EVENT_TYPE_MAX				\
@@ -436,7 +447,11 @@ static void python_process_tracepoint(struct perf_sample *sample,
 	scripting_context->event_data = data;
 	scripting_context->pevent = evsel->tp_format->pevent;
 
-	context = PyCObject_FromVoidPtr(scripting_context, NULL);
+	#ifdef IS_PY3K
+		context = PyCapsule_New((void *)scripting_context, "perf._C_API", NULL);
+	#else
+		context = PyCObject_FromVoidPtr(scripting_context, NULL);
+	#endif
 
 	PyTuple_SetItem(t, n++, PyString_FromString(handler_name));
 	PyTuple_SetItem(t, n++, context);
@@ -1122,7 +1137,11 @@ static int python_start_script(const char *script, int argc, const char **argv)
 
 	initperf_trace_context();
 
-	PySys_SetArgv(argc + 1, (char **)command_line);
+	#ifdef IS_PY3K
+		PySys_SetArgv(argc + 1, (wchar_t **)command_line);
+	#else
+		PySys_SetArgv(argc + 1, (char **)command_line);
+	#endif
 
 	fp = fopen(script, "r");
 	if (!fp) {
