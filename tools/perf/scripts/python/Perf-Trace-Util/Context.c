@@ -23,6 +23,10 @@
 #include "../../../perf.h"
 #include "../../../util/trace-event.h"
 
+#if PY_MAJOR_VERSION >= 3
+#define IS_PY3K
+#endif
+
 PyMODINIT_FUNC initperf_trace_context(void);
 
 static PyObject *perf_trace_context_common_pc(PyObject *obj, PyObject *args)
