@@ -57,7 +57,6 @@
 #define PyInt_FromLong PyLong_FromLong 
 #define PyString_FromString PyUnicode_FromFormat
 #define PyString_FromStringAndSize PyUnicode_FromStringAndSize
-#define PyCObject_FromVoidPtr PyCapsule_GetPointer
 #endif
 
 PyMODINIT_FUNC initperf_trace_context(void);
