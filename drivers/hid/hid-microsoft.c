@@ -27,6 +27,7 @@
 #define MS_DUPLICATE_USAGES	BIT(5)
 #define MS_SURFACE_DIAL		BIT(6)
 #define MS_QUIRK_FF		BIT(7)
+#define MS_XBOX_SERIES_X	BIT(8)
 
 struct ms_data {
 	unsigned long quirks;
@@ -179,6 +180,31 @@ static int ms_surface_dial_quirk(struct hid_input *hi, struct hid_field *field,
 	return 0;
 }
 
+#define ms_map_abs_clear(c)	hid_map_usage_clear(hi, usage, bit, max, \
+					EV_ABS, (c))
+static int ms_xbox_series_x_quirk(struct hid_input *hi, struct hid_field *field,
+		struct hid_usage *usage, unsigned long **bit, int *max)
+{
+	switch (usage->hid) {
+	case HID_GD_Z:
+		ms_map_abs_clear(ABS_RX);
+		break;
+	case HID_GD_RZ:
+		ms_map_abs_clear(ABS_RY);
+		break;
+	case (HID_UP_SIMULATION | 0x00c4): /* gas */
+		ms_map_abs_clear(ABS_RZ);
+		break;
+	case (HID_UP_SIMULATION | 0x00c5): /* break */
+		ms_map_abs_clear(ABS_Z);
+		break;
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
 static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -201,6 +227,11 @@ static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 
 		if (ret)
 			return ret;
+	}
+
+	if ((quirks & MS_XBOX_SERIES_X) &&
+			ms_xbox_series_x_quirk(hi, field, usage, bit, max)) {
+		return 1;
 	}
 
 	return 0;
@@ -448,6 +479,8 @@ static const struct hid_device_id ms_devices[] = {
 		.driver_data = MS_SURFACE_DIAL },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER),
 		.driver_data = MS_QUIRK_FF },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_SERIES_X_CONTROLLER),
+		.driver_data = MS_XBOX_SERIES_X },
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_8BITDO_SN30_PRO_PLUS),
 		.driver_data = MS_QUIRK_FF },
 	{ }
