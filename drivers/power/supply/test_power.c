@@ -215,6 +215,8 @@ static const struct power_supply_desc test_power_desc[] = {
 		.charge_behaviours = BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO)
 				   | BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE)
 				   | BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_FORCE_DISCHARGE),
+		.charge_types = BIT(POWER_SUPPLY_CHARGE_TYPE_NONE)
+				   | BIT(POWER_SUPPLY_CHARGE_TYPE_LONGLIFE)
 	},
 	[TEST_USB] = {
 		.name = "test_usb",
