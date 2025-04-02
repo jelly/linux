@@ -37,6 +37,8 @@ static int battery_charge_counter	= -1000;
 static int battery_current		= -1600;
 static enum power_supply_charge_behaviour battery_charge_behaviour =
 	POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO;
+static enum power_supply_charge_type battery_charge_types =
+	POWER_SUPPLY_CHARGE_TYPE_NONE;
 static bool battery_extension;
 
 static bool module_initialized;
@@ -129,6 +131,9 @@ static int test_power_get_battery_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		val->intval = battery_charge_behaviour;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPES:
+		val->intval = battery_charge_types;
+		break;
 	default:
 		pr_info("%s: some properties deliberately report errors.\n",
 			__func__);
@@ -140,7 +145,7 @@ static int test_power_get_battery_property(struct power_supply *psy,
 static int test_power_battery_property_is_writeable(struct power_supply *psy,
 						    enum power_supply_property psp)
 {
-	return psp == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR;
+	return psp == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR || POWER_SUPPLY_PROP_CHARGE_TYPES;
 }
 
 static int test_power_set_battery_property(struct power_supply *psy,
@@ -155,6 +160,14 @@ static int test_power_set_battery_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		battery_charge_behaviour = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPES:
+		if (val->intval < 0 ||
+		    val->intval >= BITS_PER_TYPE(typeof(psy->desc->charge_types)) ||
+		    !(BIT(val->intval) & psy->desc->charge_types)) {
+			return -EINVAL;
+		}
+		battery_charge_types = val->intval;
 		break;
 	default:
 		return -EINVAL;
@@ -188,6 +201,7 @@ static enum power_supply_property test_power_battery_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
+	POWER_SUPPLY_PROP_CHARGE_TYPES,
 };
 
 static char *test_power_ac_supplied_to[] = {
