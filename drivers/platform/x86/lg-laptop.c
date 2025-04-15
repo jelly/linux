@@ -18,6 +18,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/types.h>
 
 #include <acpi/battery.h>
@@ -92,6 +93,7 @@ static u32 inited;
 #define INIT_INPUT_WMI_2        0x02
 #define INIT_INPUT_ACPI         0x04
 #define INIT_SPARSE_KEYMAP      0x80
+
 
 static int battery_limit_use_wmbb;
 static struct led_classdev kbd_backlight;
@@ -448,18 +450,8 @@ static ssize_t fn_lock_show(struct device *dev,
 	return sysfs_emit(buffer, "%d\n", status);
 }
 
-static ssize_t charge_control_end_threshold_store(struct device *dev,
-						  struct device_attribute *attr,
-						  const char *buf, size_t count)
+static ssize_t set_charge_end_threshold(unsigned long value)
 {
-	unsigned long value;
-	int ret;
-
-	ret = kstrtoul(buf, 10, &value);
-	if (ret)
-		return ret;
-
-	if (value == 100 || value == 80) {
 		union acpi_object *r;
 
 		if (battery_limit_use_wmbb)
@@ -470,17 +462,33 @@ static ssize_t charge_control_end_threshold_store(struct device *dev,
 			return -EIO;
 
 		kfree(r);
+		return 0;
+}
+
+static ssize_t charge_control_end_threshold_store(struct device *dev,
+						  struct device_attribute *attr,
+						  const char *buf, size_t count)
+{
+	unsigned long value;
+	ssize_t err;
+	int ret;
+
+	ret = kstrtoul(buf, 10, &value);
+	if (ret)
+		return ret;
+
+	if (value == 100 || value == 80) {
+		err = set_charge_end_threshold(value);
+		if (err)
+			return err;
 		return count;
 	}
 
 	return -EINVAL;
 }
 
-static ssize_t charge_control_end_threshold_show(struct device *device,
-						 struct device_attribute *attr,
-						 char *buf)
+static ssize_t get_charge_end_threshold(unsigned int *status)
 {
-	unsigned int status;
 	union acpi_object *r;
 
 	if (battery_limit_use_wmbb) {
@@ -493,7 +501,7 @@ static ssize_t charge_control_end_threshold_show(struct device *device,
 			return -EIO;
 		}
 
-		status = r->buffer.pointer[0x10];
+		*status = r->buffer.pointer[0x10];
 	} else {
 		r = lg_wmab(&pf_device->dev, WM_BATT_LIMIT, WM_GET, 0);
 		if (!r)
@@ -504,9 +512,24 @@ static ssize_t charge_control_end_threshold_show(struct device *device,
 			return -EIO;
 		}
 
-		status = r->integer.value;
+		*status = r->integer.value;
 	}
 	kfree(r);
+
+	return 0;
+}
+
+static ssize_t charge_control_end_threshold_show(struct device *device,
+						 struct device_attribute *attr,
+						 char *buf)
+{
+	unsigned int status;
+	ssize_t err;
+
+	err = get_charge_end_threshold(&status);
+	if (err)
+		return err;
+
 	if (status != 80 && status != 100)
 		status = 0;
 
@@ -531,22 +554,94 @@ static DEVICE_ATTR_RW(fan_mode);
 static DEVICE_ATTR_RW(usb_charge);
 static DEVICE_ATTR_RW(reader_mode);
 static DEVICE_ATTR_RW(fn_lock);
-static DEVICE_ATTR_RW(charge_control_end_threshold);
 static DEVICE_ATTR_RW(battery_care_limit);
+
+
+static int lg_psy_ext_set_prop(struct power_supply *psy,
+			       const struct power_supply_ext *ext,
+			       void *ext_data,
+			       enum power_supply_property psp,
+			       const union power_supply_propval *val)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGE_TYPES:
+		switch (val->intval) {
+		case POWER_SUPPLY_CHARGE_TYPE_LONGLIFE:
+			return set_charge_end_threshold(80);
+		case POWER_SUPPLY_CHARGE_TYPE_STANDARD:
+			return set_charge_end_threshold(100);
+		default:
+			return -EINVAL;
+		}
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		if (val->intval == 100 || val->intval == 80)
+			return set_charge_end_threshold(val->intval);
+		return -EINVAL;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int lg_psy_ext_get_prop(struct power_supply *psy,
+			       const struct power_supply_ext *ext,
+			       void *ext_data,
+			       enum power_supply_property psp,
+			       union power_supply_propval *val)
+{
+	unsigned int status;
+	int err;
+
+	err = get_charge_end_threshold(&status);
+	if (err)
+		return err;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGE_TYPES:
+		val->intval = (status == 80 ? POWER_SUPPLY_CHARGE_TYPE_LONGLIFE :
+				POWER_SUPPLY_CHARGE_TYPE_STANDARD);
+		return 0;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD:
+		val->intval = status;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int lg_psy_prop_is_writeable(struct power_supply *psy,
+				    const struct power_supply_ext *ext,
+				    void *data,
+				    enum power_supply_property psp)
+{
+	return true;
+}
+
+static const enum power_supply_property lg_power_supply_props[] = {
+	POWER_SUPPLY_PROP_CHARGE_TYPES,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD
+};
+
+static const struct power_supply_ext lg_battery_ext = {
+	.name                   = "lg_laptop",
+	.properties             = lg_power_supply_props,
+	.num_properties         = ARRAY_SIZE(lg_power_supply_props),
+	.charge_types           = (BIT(POWER_SUPPLY_CHARGE_TYPE_STANDARD) |
+				   BIT(POWER_SUPPLY_CHARGE_TYPE_LONGLIFE)),
+	.get_property           = lg_psy_ext_get_prop,
+	.set_property           = lg_psy_ext_set_prop,
+	.property_is_writeable  = lg_psy_prop_is_writeable,
+};
 
 static int lg_battery_add(struct power_supply *battery, struct acpi_battery_hook *hook)
 {
-	if (device_create_file(&battery->dev,
-			       &dev_attr_charge_control_end_threshold))
-		return -ENODEV;
-
-	return 0;
+	return power_supply_register_extension(battery, &lg_battery_ext, &pf_device->dev,
+					       pf_device);
 }
 
 static int lg_battery_remove(struct power_supply *battery, struct acpi_battery_hook *hook)
 {
-	device_remove_file(&battery->dev,
-			   &dev_attr_charge_control_end_threshold);
+	power_supply_unregister_extension(battery, &lg_battery_ext);
+
 	return 0;
 }
 
