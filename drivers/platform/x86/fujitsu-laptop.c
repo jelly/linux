@@ -176,7 +176,8 @@ static ssize_t charge_control_end_threshold_store(struct device *dev,
 				const char *buf, size_t count)
 {
 	int cc_end_value, s006_cc_return;
-	int value, ret;
+	int ret;
+	unsigned int value;
 
 	ret = kstrtouint(buf, 10, &value);
 	if (ret)
