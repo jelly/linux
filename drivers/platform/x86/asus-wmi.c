@@ -1399,13 +1399,14 @@ static ssize_t charge_control_end_threshold_store(struct device *dev,
 						  struct device_attribute *attr,
 						  const char *buf, size_t count)
 {
-	int value, ret, rv;
+	int ret, rv;
+	unsigned int value;
 
 	ret = kstrtouint(buf, 10, &value);
 	if (ret)
 		return ret;
 
-	if (value < 0 || value > 100)
+	if (value > 100)
 		return -EINVAL;
 
 	ret = asus_wmi_set_devstate(ASUS_WMI_DEVID_RSOC, value, &rv);
